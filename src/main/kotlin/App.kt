@@ -76,7 +76,13 @@ fun App() {
                     value = scrapPeriod.value,
                     onValueChange = {
                         scrapPeriod.value = it
-                        configurationRepository.setScrapPeriodMillis(it.toLong() * 60 * 1000)
+                        if (it != "") {
+                            try {
+                                configurationRepository.setScrapPeriodMillis(it.toLong() * 60 * 1000)
+                            } catch (e: Exception) {
+                                logger.e(e)
+                            }
+                        }
                     },
                     label = { Text("Scrap period (minutes)") }
                 )

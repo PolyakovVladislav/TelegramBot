@@ -1,2 +1,6 @@
-/build/
+/wix311/
 /.gradle/
+/build/
+/example-tdlight-session/
+/tdlib/
+/.cache/
