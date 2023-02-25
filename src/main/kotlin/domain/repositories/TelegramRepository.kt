@@ -1,7 +1,8 @@
 package domain.repositories
 
-import data.model.ScrapUsersResult
+import data.model.ScrapedUsers
 import data.model.TelegramAuthenticationResult
+import kotlinx.coroutines.flow.Flow
 
 interface TelegramRepository {
 
@@ -9,7 +10,7 @@ interface TelegramRepository {
 
     suspend fun confirmLogin(authCode: String): Result<Unit>
 
-    suspend fun scrapGroupForUsersIds(groupLink: String): Result<ScrapUsersResult>
+    suspend fun scrapGroupForUsersIds(groupLink: String): Flow<ScrapedUsers>
 
     suspend fun addUsersToGroup(chatId: Long, usersIds: List<Long>): Result<Unit>
 

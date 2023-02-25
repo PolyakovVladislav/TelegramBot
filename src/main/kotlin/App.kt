@@ -1,6 +1,7 @@
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.MaterialTheme
@@ -22,6 +23,7 @@ import bot.Instruction
 import domain.instructions.LoginInstruction
 import domain.instructions.ScrapGroupInstruction
 import domain.instructions.SendMessageInstruction
+import domain.models.Status
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -29,6 +31,8 @@ import ui.loginForm.LoginForm
 import ui.messages.MessagesForm
 import ui.myGroupsForm.MyGroupForm
 import ui.scrapGroupsForm.ScrapGroupsForm
+import ui.statusForm.StatusForm
+import ui.statusForm.StatusStore
 import utils.Logger
 
 val bot = Bot(appScope, configurationRepository, ::onInstructionTimeout, ::onInstructionFailed)
@@ -39,6 +43,9 @@ private val logger = Logger("App", configurationRepository, LOGGER_LEVEL)
 fun App() {
     val appState = remember {
         ApplicationStore()
+    }
+    val statusState = remember {
+        StatusStore()
     }
 
     val mCheckedState = remember { mutableStateOf(false) }
@@ -54,7 +61,7 @@ fun App() {
 
     val scrapPeriod = remember {
         mutableStateOf(
-            data
+            data,
         )
     }
 
@@ -68,29 +75,39 @@ fun App() {
                         mCheckedState.value = it
                         onToggleBot(
                             it,
-                            appState
+                            appState,
+                            statusState
                         )
-                    }
-                )
-                OutlinedTextField(
-                    value = scrapPeriod.value,
-                    onValueChange = {
-                        scrapPeriod.value = it
-                        if (it != "") {
-                            try {
-                                configurationRepository.setScrapPeriodMillis(it.toLong() * 60 * 1000)
-                            } catch (e: Exception) {
-                                logger.e(e)
-                            }
-                        }
                     },
-                    label = { Text("Scrap period (minutes)") }
                 )
+                Column {
+                    OutlinedTextField(
+                        value = scrapPeriod.value,
+                        onValueChange = {
+                            scrapPeriod.value = it
+                            if (it != "") {
+                                try {
+                                    configurationRepository.setScrapPeriodMillis(it.toLong() * 60 * 1000)
+                                } catch (e: Exception) {
+                                    logger.e(e)
+                                }
+                            }
+                        },
+                        label = { Text("Scrap period (minutes)") },
+                    )
+                    Spacer(Modifier.padding(top = 12.dp))
+                    StatusForm(
+                        statusState,
+                    )
+                }
             }
+
             Row {
                 ScrapGroupsForm(modifier = Modifier.fillMaxWidth().padding(8.dp).weight(1f))
                 MyGroupForm(modifier = Modifier.fillMaxWidth().padding(8.dp).weight(1f))
-                MessagesForm(modifier = Modifier.fillMaxWidth().padding(8.dp).weight(1f), ::onMessagesChanged)
+                MessagesForm(modifier = Modifier.fillMaxWidth().padding(8.dp).weight(1f)) {
+                    onMessagesChanged(statusState)
+                }
             }
         }
     }
@@ -103,13 +120,14 @@ fun App() {
                 mCheckedState.value = false
                 onToggleBot(
                     false,
-                    appState
+                    appState,
+                    statusState
                 )
             },
             state = WindowState(
                 position = Aligned(Alignment.Center),
-                size = DpSize(300.dp, 200.dp)
-            )
+                size = DpSize(300.dp, 200.dp),
+            ),
         ) {
             AuthCodeWindow { authCode ->
                 appState.setAuthCode(authCode)
@@ -117,7 +135,7 @@ fun App() {
         }
     }
     if (appState.state.authCode != null) {
-        onAuthEntered(appState.state.authCode!!, appState)
+        onAuthEntered(appState.state.authCode!!, appState, statusState)
         appState.codeApplied()
     }
 }
@@ -130,9 +148,9 @@ private fun onInstructionTimeout(exception: Exception) {
     logger.e(exception)
 }
 
-private fun onMessagesChanged() {
+private fun onMessagesChanged(statusStore: StatusStore) {
     val messageInstruction = try {
-        getSendInstruction()
+        getSendInstruction(statusStore)
     } catch (e: Exception) {
         logger.e(e)
         return
@@ -150,22 +168,22 @@ private fun onMessagesChanged() {
     }
 }
 
-private fun onLoginInstructionExecuted(instruction: Instruction) {
+private fun onLoginInstructionExecuted(instruction: Instruction, statusStore: StatusStore) {
     logger("onLoginInstructionExecuted:")
-    bot.add(createScrapInstruction(System.currentTimeMillis()))
+    bot.add(createScrapInstruction(System.currentTimeMillis(), statusStore))
     try {
-        val sendMessageInstruction = getSendInstruction()
+        val sendMessageInstruction = getSendInstruction(statusStore)
         bot.add(sendMessageInstruction)
     } catch (e: Exception) {
         logger.e(e)
     }
 }
 
-private fun onToggleBot(toggle: Boolean, appState: ApplicationStore) {
+private fun onToggleBot(toggle: Boolean, appState: ApplicationStore, statusStore: StatusStore) {
     if (toggle) {
         bot.start()
         bot.add(
-            createLoginInstruction(null, appState)
+            createLoginInstruction(null, appState, statusStore),
         )
     } else {
         bot.stop(true)
@@ -175,31 +193,36 @@ private fun onToggleBot(toggle: Boolean, appState: ApplicationStore) {
     }
 }
 
-private fun onScrapInstructionExecuted(instruction: Instruction) {
+private fun onScrapInstructionExecuted(instruction: Instruction, statusStore: StatusStore) {
     bot.add(
         createScrapInstruction(
-            System.currentTimeMillis() + configurationRepository.getScrapPeriodMillis().getOrNull()!!
-        )
+            System.currentTimeMillis() + configurationRepository.getScrapPeriodMillis().getOrNull()!!,
+            statusStore,
+        ),
     )
 }
 
-private fun onSendMessageInstructionExecuted(instruction: Instruction) {
+private fun onSendMessageInstructionExecuted(instruction: Instruction, statusStore: StatusStore) {
     instruction as SendMessageInstruction
     configurationRepository.markMessageAsSent(instruction.message)
     try {
-        bot.add(getSendInstruction())
+        bot.add(getSendInstruction(statusStore))
     } catch (e: Exception) {
         logger.e(e)
         appScope.launch {
             delay(30000)
-            onSendMessageInstructionExecuted(instruction)
+            onSendMessageInstructionExecuted(instruction, statusStore)
         }
     } catch (e: Exception) {
         logger.e(e)
     }
 }
 
-private fun createLoginInstruction(authCode: String?, appState: ApplicationStore): LoginInstruction {
+private fun createLoginInstruction(
+    authCode: String?,
+    appState: ApplicationStore,
+    statusStore: StatusStore,
+): LoginInstruction {
     return LoginInstruction(
         telegramRepository,
         configurationRepository,
@@ -207,9 +230,10 @@ private fun createLoginInstruction(authCode: String?, appState: ApplicationStore
         authCode,
         LOGIN_INSTRUCTION_ID,
         0,
-        "Login instruction",
-        ::onLoginInstructionExecuted
-    )
+        "Login instruction"
+    ) { instruction ->
+        onLoginInstructionExecuted(instruction, statusStore)
+    }
 }
 
 private fun onAuthRequested(appState: ApplicationStore) {
@@ -218,25 +242,31 @@ private fun onAuthRequested(appState: ApplicationStore) {
     bot.remove(0)
 }
 
-private fun onAuthEntered(authCode: String, appState: ApplicationStore) {
+private fun onAuthEntered(authCode: String, appState: ApplicationStore, statusStore: StatusStore) {
     bot.add(
-        createLoginInstruction(authCode, appState)
+        createLoginInstruction(authCode, appState, statusStore),
     )
     bot.start()
 }
 
-private fun createScrapInstruction(executionTime: Long): ScrapGroupInstruction {
+private fun createScrapInstruction(executionTime: Long, statusStore: StatusStore): ScrapGroupInstruction {
     return ScrapGroupInstruction(
         telegramRepository,
         configurationRepository,
         SCRAP_GROUP_INSTRUCTION_ID,
         executionTime,
         "Scrap group for users instructions",
-        ::onScrapInstructionExecuted
-    )
+        { instruction ->  onScrapInstructionExecuted(instruction, statusStore) },
+    ) { status ->
+        onInstructionStatusUpdate(status, statusStore)
+    }
 }
 
-private fun getSendInstruction(): SendMessageInstruction {
+fun onInstructionStatusUpdate(status: Status, statusStore: StatusStore) {
+    statusStore.setStatus(status)
+}
+
+private fun getSendInstruction(statusStore: StatusStore): SendMessageInstruction {
     val messagesResult = configurationRepository.getMessages()
     if (messagesResult.isFailure) {
         throw requireNotNull(messagesResult.exceptionOrNull())
@@ -262,6 +292,8 @@ private fun getSendInstruction(): SendMessageInstruction {
         SEND_MESSAGE_INSTRUCTION_ID,
         message.rtcTime,
         "Send message",
-        ::onSendMessageInstructionExecuted
-    )
+        { instruction -> onSendMessageInstructionExecuted(instruction, statusStore) },
+    ) { status ->
+        onInstructionStatusUpdate(status, statusStore)
+    }
 }

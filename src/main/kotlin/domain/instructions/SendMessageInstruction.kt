@@ -2,6 +2,7 @@ package domain.instructions
 
 import bot.Instruction
 import domain.models.Message
+import domain.models.Status
 import domain.repositories.ConfigurationsRepository
 import domain.repositories.TelegramRepository
 
@@ -12,7 +13,8 @@ class SendMessageInstruction(
     id: Int,
     executionTime: Long,
     description: String,
-    onExecuted: (Instruction) -> Unit
+    onExecuted: (Instruction) -> Unit,
+    onProgressUpdated: (Status) -> Unit = { },
 ) : Instruction(
     id,
     executionTime,
@@ -20,7 +22,8 @@ class SendMessageInstruction(
     0,
     30_000L,
     description,
-    onExecuted
+    onExecuted,
+    onProgressUpdated,
 ) {
 
     override suspend fun run() {

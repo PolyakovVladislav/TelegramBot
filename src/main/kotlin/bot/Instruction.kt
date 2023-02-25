@@ -1,5 +1,6 @@
 package bot
 
+import domain.models.Status
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +21,7 @@ abstract class Instruction(
     val timeout: Long,
     val description: String,
     val onExecuted: (Instruction) -> Unit,
+    val onProgressUpdated: (Status) -> Unit = {  },
     val onException: (Exception, Instruction) -> Unit = { _, _ -> }
 ): CoroutineScope {
 
