@@ -11,7 +11,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-@Preview
 fun StatusForm(
     statusStore: StatusStore,
     modifier: Modifier = Modifier.padding(8.dp).requiredWidth(300.dp)

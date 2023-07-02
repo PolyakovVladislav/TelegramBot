@@ -1,6 +1,7 @@
 package ui.messages
 
 import androidx.compose.desktop.ui.tooling.preview.Preview
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,12 +20,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import configurationRepository
 import domain.models.Message
 
 @Composable
-@Preview
 fun MessagesForm(
     modifier: Modifier,
     onMessagesChanged: () -> Unit
@@ -44,15 +45,18 @@ fun MessagesForm(
                 onValueChange = store::editMessageField,
                 label = { Text("Message") }
             )
-            Row(Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 OutlinedTextField(
-                    modifier = Modifier.fillMaxWidth().padding(end = 4.dp).weight(2f),
+                    modifier = Modifier.fillMaxWidth(0.66f),
                     value = store.timeState,
                     onValueChange = store::editTimeField,
                     label = { Text("Time (hh:mm)") }
                 )
                 Button(
-                    modifier = Modifier.fillMaxWidth().padding(end = 4.dp).weight(1f),
+                    modifier = Modifier.fillMaxWidth(1f).padding(start = 4.dp, end = 4.dp, top = 6.dp),
                     onClick = { store.add(store.messageState, store.timeState); onMessagesChanged() }
                 ) {
                     Text("Add")

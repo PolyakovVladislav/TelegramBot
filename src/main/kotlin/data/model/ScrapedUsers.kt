@@ -1,12 +1,9 @@
 package data.model
 
-import java.lang.Exception
-
 sealed class ScrapedUsers {
 
     data class Result(
-        val usersIds: List<Long>,
-        val exception: Exception?
+        val usersIds: List<Long>
     ): ScrapedUsers()
 
     data class Progress(

@@ -38,8 +38,8 @@ import utils.Logger
 val bot = Bot(appScope, configurationRepository, ::onInstructionTimeout, ::onInstructionFailed)
 private val logger = Logger("App", configurationRepository, LOGGER_LEVEL)
 
-@Composable
 @Preview
+@Composable
 fun App() {
     val appState = remember {
         ApplicationStore()
@@ -112,9 +112,11 @@ fun App() {
         }
     }
 
-    if (appState.state.expectingAuthCode) {
+    if (appState.state.expectingAuthCode.not()) {
         Window(
             title = "Enter auth code",
+            alwaysOnTop = true,
+            resizable = false,
             onCloseRequest = {
                 appState.setExpectingAuthCode(false)
                 mCheckedState.value = false
@@ -126,7 +128,7 @@ fun App() {
             },
             state = WindowState(
                 position = Aligned(Alignment.Center),
-                size = DpSize(300.dp, 200.dp),
+                size = DpSize(300.dp, 160.dp),
             ),
         ) {
             AuthCodeWindow { authCode ->

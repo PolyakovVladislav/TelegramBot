@@ -17,7 +17,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import domain.models.TelegramGroup
 
-@Preview
 @Composable
 fun CardGroup(
     onDeleteClicked: (TelegramGroup) -> Unit,

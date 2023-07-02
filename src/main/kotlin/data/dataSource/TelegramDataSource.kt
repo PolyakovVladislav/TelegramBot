@@ -6,6 +6,8 @@ import it.tdlight.jni.TdApi.BasicGroupFullInfo
 import it.tdlight.jni.TdApi.Chat
 import it.tdlight.jni.TdApi.ChatMembers
 import it.tdlight.jni.TdApi.Chats
+import it.tdlight.jni.TdApi.Message
+import it.tdlight.jni.TdApi.Messages
 import it.tdlight.jni.TdApi.SupergroupFullInfo
 
 interface TelegramDataSource {
@@ -21,6 +23,9 @@ interface TelegramDataSource {
 
     @Throws(TelegramException::class)
     suspend fun sendMessageToGroup(chatId: Long, message: String)
+
+    @Throws(TelegramException::class)
+    suspend fun sendMessageToUser(userId: Long, message: String)
 
     @Throws(TelegramException::class)
     suspend fun searchPublicChat(groupLink: String): Chat
@@ -39,4 +44,10 @@ interface TelegramDataSource {
 
     @Throws(TelegramException::class)
     suspend fun getSuperGroupMembers(supergroupId: Long, offset: Int, limit: Int): ChatMembers
+
+    @Throws(TelegramException::class)
+    suspend fun getMessagesHistory(chatId: Long, fromMessageId: Long, offset: Int, limit: Int = 100): Messages
+
+    @Throws(TelegramException::class)
+    suspend fun getRepliesForMessage(message: Message): Messages
 }

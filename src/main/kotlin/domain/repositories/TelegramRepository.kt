@@ -10,11 +10,13 @@ interface TelegramRepository {
 
     suspend fun confirmLogin(authCode: String): Result<Unit>
 
-    suspend fun scrapGroupForUsersIds(groupLink: String): Flow<ScrapedUsers>
+    suspend fun scrapGroupMembersIds(groupLink: String): Flow<ScrapedUsers>
 
     suspend fun addUsersToGroup(chatId: Long, usersIds: List<Long>): Result<Unit>
 
     suspend fun getChatId(groupLink: String): Result<Long>
 
     suspend fun sendMessageToGroup(chatId: Long, message: String): Result<Unit>
+
+    suspend fun sendMessageToUser(usersId: Long, message: String): Result<Unit>
 }

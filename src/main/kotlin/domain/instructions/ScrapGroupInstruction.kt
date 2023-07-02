@@ -41,7 +41,7 @@ class ScrapGroupInstruction(
         }
         val groupsForScrap = groupsForScrapResult.getOrNull()!!
         groupsForScrap.forEach { groupForScrap ->
-            val scrapFlow = telegramRepository.scrapGroupForUsersIds(groupForScrap.groupLink)
+            val scrapFlow = telegramRepository.scrapGroupMembersIds(groupForScrap.groupLink)
             scrapFlow
                 .catch { exception -> logger.e(exception) }
                 .collect { scrapedUsers ->
@@ -74,7 +74,7 @@ class ScrapGroupInstruction(
                                 groupForSpam.chatId = chatId
                             }
                             telegramRepository.addUsersToGroup(chatId, usersIds)
-                            val currentUserFlow = telegramRepository.scrapGroupForUsersIds(groupForSpam.groupLink)
+                            val currentUserFlow = telegramRepository.scrapGroupMembersIds(groupForSpam.groupLink)
                             currentUserFlow
                                 .catch { exception -> logger.e(exception) }
                                 .collect { currentUsers ->

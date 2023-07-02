@@ -19,7 +19,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import configurationRepository
 
-@Preview
 @Composable
 fun MyGroupForm(
     modifier: Modifier

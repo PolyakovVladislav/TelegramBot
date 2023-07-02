@@ -31,11 +31,15 @@ import it.tdlight.jni.TdApi.CheckAuthenticationCode
 import it.tdlight.jni.TdApi.FormattedText
 import it.tdlight.jni.TdApi.GetBasicGroupFullInfo
 import it.tdlight.jni.TdApi.GetChat
+import it.tdlight.jni.TdApi.GetChatHistory
 import it.tdlight.jni.TdApi.GetSupergroupFullInfo
 import it.tdlight.jni.TdApi.GetSupergroupMembers
 import it.tdlight.jni.TdApi.InputMessageText
+import it.tdlight.jni.TdApi.Message
+import it.tdlight.jni.TdApi.Messages
 import it.tdlight.jni.TdApi.SearchPublicChat
 import it.tdlight.jni.TdApi.SearchPublicChats
+import it.tdlight.jni.TdApi.SendMessage
 import it.tdlight.jni.TdApi.SetTdlibParameters
 import it.tdlight.jni.TdApi.SupergroupFullInfo
 import it.tdlight.jni.TdApi.UpdateAuthorizationState
@@ -62,7 +66,7 @@ class TelegramRemoteDataSource : TelegramDataSource {
         const val TOO_MANY_REQUESTS = 429
         const val TIMEOUT = 600_000L
     }
-    
+
     private val log = Logger(this.javaClass.simpleName, configurationRepository, LOGGER_LEVEL)
 
     private var _client: SimpleTelegramClient? = null
@@ -99,49 +103,49 @@ class TelegramRemoteDataSource : TelegramDataSource {
                             is AuthorizationStateReady -> {
                                 TelegramAuthenticationResult(
                                     TelegramAuthenticationResult.LOGGED_IN,
-                                    update.authorizationState.toString()
+                                    update.authorizationState.toString(),
                                 )
                             }
 
                             is AuthorizationStateClosing -> {
                                 TelegramAuthenticationResult(
                                     TelegramAuthenticationResult.CLOSING,
-                                    update.authorizationState.toString()
+                                    update.authorizationState.toString(),
                                 )
                             }
 
                             is AuthorizationStateClosed -> {
                                 TelegramAuthenticationResult(
                                     TelegramAuthenticationResult.CLOSED,
-                                    update.authorizationState.toString()
+                                    update.authorizationState.toString(),
                                 )
                             }
 
                             is AuthorizationStateLoggingOut -> {
                                 TelegramAuthenticationResult(
                                     TelegramAuthenticationResult.LOGGING_OUT,
-                                    update.authorizationState.toString()
+                                    update.authorizationState.toString(),
                                 )
                             }
 
                             is AuthorizationStateWaitCode -> {
                                 TelegramAuthenticationResult(
                                     TelegramAuthenticationResult.WAITING_FOR_AUTH_CODE,
-                                    update.authorizationState.toString()
+                                    update.authorizationState.toString(),
                                 )
                             }
 
                             is AuthorizationStateWaitTdlibParameters -> {
                                 TelegramAuthenticationResult(
                                     TelegramAuthenticationResult.WAITING_FOR_TDLIB_PARAMETERS,
-                                    update.authorizationState.toString()
+                                    update.authorizationState.toString(),
                                 )
                             }
 
                             is AuthorizationStateWaitPhoneNumber -> {
                                 TelegramAuthenticationResult(
                                     TelegramAuthenticationResult.WAITING_FOR_PHONE_NUMBER,
-                                    update.authorizationState.toString()
+                                    update.authorizationState.toString(),
                                 )
                             }
 
@@ -183,7 +187,7 @@ class TelegramRemoteDataSource : TelegramDataSource {
 
                             else -> {
                                 throw TelegramAuthenticationException(
-                                    "Unexpected authorization state:\n${result.state}"
+                                    "Unexpected authorization state:\n${result.state}",
                                 )
                             }
                         }
@@ -241,7 +245,7 @@ class TelegramRemoteDataSource : TelegramDataSource {
                         continuation.resumeWithException(searchResult.error.mapToTelegramException())
                     } else if (searchResult.get().totalCount == 0) {
                         continuation.resumeWithException(
-                            TelegramException(CHAT_NOT_FOUND, "Chat with name $groupLink not found")
+                            TelegramException(CHAT_NOT_FOUND, "Chat with name $groupLink not found"),
                         )
                     } else {
                         continuation.resume(searchResult.get())
@@ -275,7 +279,7 @@ class TelegramRemoteDataSource : TelegramDataSource {
                     log("superGroupInfo: ${superGroupInfo.get()}", logLevel = Staging)
                     if (superGroupInfo.isError) {
                         continuation.resumeWithException(
-                            superGroupInfo.error.mapToTelegramException()
+                            superGroupInfo.error.mapToTelegramException(),
                         )
                     } else {
                         continuation.resume(superGroupInfo.get())
@@ -310,7 +314,7 @@ class TelegramRemoteDataSource : TelegramDataSource {
                     log("inviteResult: ${inviteResult.get()}", logLevel = Staging)
                     if (inviteResult.isError) {
                         continuation.resumeWithException(
-                            inviteResult.error.mapToTelegramException()
+                            inviteResult.error.mapToTelegramException(),
                         )
                     } else {
                         continuation.resume(Unit)
@@ -327,19 +331,47 @@ class TelegramRemoteDataSource : TelegramDataSource {
             val inputMessageContent = InputMessageText(FormattedText(message, null), false, true)
             return@executeWithTimeout suspendCancellableCoroutine { continuation ->
                 client.send(
-                    TdApi.SendMessage(
+                    SendMessage(
                         chatId,
                         0,
                         0,
                         null,
                         null,
-                        inputMessageContent
-                    )
+                        inputMessageContent,
+                    ),
                 ) { messageResult ->
                     log("messageResult: ${messageResult.get()}", logLevel = Staging)
                     if (messageResult.isError) {
                         continuation.resumeWithException(
-                            messageResult.error.mapToTelegramException()
+                            messageResult.error.mapToTelegramException(),
+                        )
+                    } else {
+                        continuation.resume(Unit)
+                    }
+                }
+            }
+        }
+    }
+
+    override suspend fun sendMessageToUser(userId: Long, message: String) {
+        return executeWithTimeout(TIMEOUT) {
+            log("sendMessageToUser: userId: $userId, message: $message", logLevel = Staging)
+            suspendCancellableCoroutine { continuation ->
+                val inputMessageContent = InputMessageText(FormattedText(message, null), false, true)
+                client.send(
+                    SendMessage(
+                        userId,
+                        0,
+                        0,
+                        null,
+                        null,
+                        inputMessageContent,
+                    ),
+                ) { messageResult ->
+                    log("messageResult: ${messageResult.get()}", logLevel = Staging)
+                    if (messageResult.isError) {
+                        continuation.resumeWithException(
+                            messageResult.error.mapToTelegramException(),
                         )
                     } else {
                         continuation.resume(Unit)
@@ -351,21 +383,21 @@ class TelegramRemoteDataSource : TelegramDataSource {
 
     override suspend fun getSuperGroupMembers(supergroupId: Long, offset: Int, limit: Int): ChatMembers {
         return executeWithTimeout(TIMEOUT) {
-            log("getSuperGroupMembers: offset = $offset, limit = $limit", logLevel = Staging)
+            log("getSuperGroupMembers: supergroupId = $supergroupId, offset = $offset, limit = $limit", logLevel = Staging)
             suspendCancellableCoroutine { continuation ->
                 client.send(
                     GetSupergroupMembers(
                         supergroupId,
                         null,
                         offset,
-                        limit
-                    )
+                        limit,
+                    ),
                 ) { membersResult ->
                     log("membersResult: ${membersResult.get()}", logLevel = Staging)
                     if (membersResult.isError) {
                         if (membersResult.error.code == TOO_MANY_REQUESTS) {
                             continuation.resumeWithException(
-                                membersResult.error.mapToTelegramException()
+                                membersResult.error.mapToTelegramException(),
                             )
                         } else {
                             membersResult.error.mapToTelegramException()
@@ -375,6 +407,34 @@ class TelegramRemoteDataSource : TelegramDataSource {
                         continuation.resume(membersResult.get())
                     }
                 }
+            }
+        }
+    }
+
+    /**
+     * To get messages history from newer to older set offset to negative value
+     * Maximal possible API limit is 100
+     */
+    override suspend fun getMessagesHistory(chatId: Long, fromMessageId: Long, offset: Int, limit: Int): Messages {
+        return executeWithTimeout(TIMEOUT) {
+            log("getMessagesHistory: chatId = $chatId, offset = $offset, limit = $limit", logLevel = Staging)
+            suspendCancellableCoroutine { continuation ->
+                client.send(GetChatHistory(chatId, fromMessageId ,offset, limit, true))  {  result ->
+                    if (result.isError) {
+                        continuation.resumeWithException(result.error.mapToTelegramException())
+                    } else {
+                        continuation.resume(result.get())
+                    }
+                }
+            }
+        }
+    }
+
+    override suspend fun getRepliesForMessage(message: Message): Messages {
+        return executeWithTimeout(TIMEOUT) {
+            log("getRepliesForMessage: message = $message", logLevel = Staging)
+            suspendCancellableCoroutine { continuation ->
+                message.content
             }
         }
     }

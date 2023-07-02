@@ -15,7 +15,6 @@ import androidx.compose.ui.unit.dp
 import configurationRepository
 
 @Composable
-@Preview
 fun LoginForm(
     modifier: Modifier = Modifier.padding(8.dp).requiredWidth(300.dp)
 ) {

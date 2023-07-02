@@ -12,6 +12,10 @@ import it.tdlight.jni.TdApi.Chat
 import it.tdlight.jni.TdApi.ChatTypeBasicGroup
 import it.tdlight.jni.TdApi.ChatTypeSupergroup
 import it.tdlight.jni.TdApi.MessageSenderUser
+import it.tdlight.jni.TdApi.Messages
+import it.tdlight.jni.TdApi.ReplyMarkupForceReply
+import it.tdlight.jni.TdApi.ReplyMarkupInlineKeyboard
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -49,35 +53,13 @@ class TelegramRepositoryImpl(
         }
     }
 
-    override suspend fun scrapGroupForUsersIds(groupLink: String): Flow<ScrapedUsers> {
+    override suspend fun scrapGroupMembersIds(groupLink: String): Flow<ScrapedUsers> {
         logger("scrapGroupForUsersIds:", logLevel = LOGGER_LEVEL)
         val chat = telegramDataSource.searchPublicChat(groupLink)
         return when (chat.type) {
-            is ChatTypeSupergroup -> scarpUserIdsFromSuperGroup(chat)
+            is ChatTypeSupergroup -> scarpMembersIdsFromSuperGroup(chat)
 
-            is ChatTypeBasicGroup -> scrapUserIdsFromBasicGroup(chat)
-
-            else -> {
-                throw TelegramException(
-                    TelegramRemoteDataSource.UNSUPPORTED_GROUP_TYPE,
-                    "Unsupported group type: ${chat.type}",
-                )
-            }
-        }
-    }
-
-    private suspend fun getChatLink(chat: Chat): String {
-        when (chat.type) {
-            is ChatTypeSupergroup -> {
-                val supergroupId = (chat.type as ChatTypeSupergroup).supergroupId
-                val info = telegramDataSource.getSuperGroupFullInfo(supergroupId)
-                return info.inviteLink.name
-            }
-
-            is ChatTypeBasicGroup -> {
-                val info = telegramDataSource.getBasicGroupFullInfo(chat.id)
-                return info.inviteLink.name
-            }
+            is ChatTypeBasicGroup -> scrapMembersIdsFromBasicGroup(chat)
 
             else -> {
                 throw TelegramException(
@@ -88,13 +70,46 @@ class TelegramRepositoryImpl(
         }
     }
 
-    private suspend fun scarpUserIdsFromSuperGroup(chat: Chat): Flow<ScrapedUsers> {
+    private suspend fun scrapUserIdsFromMessageHistory(chat: Chat, limit: Int = 10000): Flow<ScrapedUsers> {
+        return flow {
+            val fromMessageId = chat.lastMessage.id
+            var offset = 0
+            val ids = mutableListOf<Long>()
+            do {
+                var messages: Messages?
+                try {
+                    messages = telegramDataSource.getMessagesHistory(chat.id, fromMessageId, offset)
+                    messages.messages[0].isTopicMessage
+                    ids.addAll(
+                        messages.messages.map { message ->
+                            (message.senderId as MessageSenderUser).userId
+                        }
+                    )
+                    offset += 100
+                    messages.messages.forEach { message ->
+                        if (message.replyMarkup is ReplyMarkupInlineKeyboard ||
+                            message.replyMarkup is ReplyMarkupForceReply
+                        ) {
+
+                        }
+                    }
+                    emit(ScrapedUsers.Progress(offset, limit))
+                } catch (e: TelegramException) {
+                    emit(ScrapedUsers.Result(ids))
+                    throw e
+                }
+            } while (limit <= offset && messages?.totalCount == 100)
+            emit(ScrapedUsers.Result(ids))
+        }
+    }
+
+    private suspend fun scarpMembersIdsFromSuperGroup(chat: Chat): Flow<ScrapedUsers> {
         return flow {
             val supergroupId = (chat.type as ChatTypeSupergroup).supergroupId
             val superGroupInfo = telegramDataSource.getSuperGroupFullInfo(supergroupId)
             val membersCount = superGroupInfo.memberCount
             if (superGroupInfo.canGetMembers) {
-                var iMax = if (membersCount <= 200) {
+                val iMax = if (membersCount <= 200) {
                     0
                 } else {
                     floor(membersCount / 200f).toInt()
@@ -110,9 +125,9 @@ class TelegramRepositoryImpl(
                         emit(
                             ScrapedUsers.Result(
                                 list,
-                                e,
                             ),
                         )
+                        throw e
                         return@flow
                     }
                     list.addAll(
@@ -125,7 +140,6 @@ class TelegramRepositoryImpl(
                 emit(
                     ScrapedUsers.Result(
                         list,
-                        null,
                     ),
                 )
             } else {
@@ -137,13 +151,13 @@ class TelegramRepositoryImpl(
         }
     }
 
-    private suspend fun scrapUserIdsFromBasicGroup(chat: Chat): Flow<ScrapedUsers> {
+    private suspend fun scrapMembersIdsFromBasicGroup(chat: Chat): Flow<ScrapedUsers> {
         return flow {
             val basicGroupInfo = telegramDataSource.getBasicGroupFullInfo(chat.id)
             val ids = basicGroupInfo.members.map { member ->
                 (member.memberId as MessageSenderUser).userId
             }
-            emit(ScrapedUsers.Result(ids, null))
+            emit(ScrapedUsers.Result(ids))
         }
     }
 
@@ -166,6 +180,35 @@ class TelegramRepositoryImpl(
         return executeSafety {
             logger("sendMessageToGroup:", logLevel = LOGGER_LEVEL)
             telegramDataSource.sendMessageToGroup(chatId, message)
+        }
+    }
+
+    override suspend fun sendMessageToUser(usersId: Long, message: String): Result<Unit> {
+        return executeSafety {
+            logger("sendMessageToGroup:", logLevel = LOGGER_LEVEL)
+            telegramDataSource.sendMessageToGroup(usersId, message)
+        }
+    }
+
+    private suspend fun getChatLink(chat: Chat): String {
+        when (chat.type) {
+            is ChatTypeSupergroup -> {
+                val supergroupId = (chat.type as ChatTypeSupergroup).supergroupId
+                val info = telegramDataSource.getSuperGroupFullInfo(supergroupId)
+                return info.inviteLink.name
+            }
+
+            is ChatTypeBasicGroup -> {
+                val info = telegramDataSource.getBasicGroupFullInfo(chat.id)
+                return info.inviteLink.name
+            }
+
+            else -> {
+                throw TelegramException(
+                    TelegramRemoteDataSource.UNSUPPORTED_GROUP_TYPE,
+                    "Unsupported group type: ${chat.type}",
+                )
+            }
         }
     }
 }

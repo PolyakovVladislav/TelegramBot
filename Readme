@@ -1,0 +1,21 @@
+Telegram API usage
+
+---Message sending---
+There are limits to the number of messages that can be sent from a single Telegram account to other users in a given period of time. These limits are designed to prevent spamming and abuse of the Telegram platform.
+The exact limits and thresholds are not publicly disclosed by Telegram, but they are based on various factors such as the age of the account, the number of contacts the account has, and the frequency and volume of messages being sent. If an account is detected to be sending too many messages too quickly, it may trigger a temporary or permanent restriction on the account's ability to send messages.
+It's important to use Telegram responsibly and avoid sending excessive or unwanted messages, as this can result in account restrictions or even account suspension. If you're sending messages for legitimate purposes such as customer support or marketing, make sure to comply with Telegram's terms of service and guidelines for acceptable use.
+
+---Error codes:---
+100: TDLib internal error. This usually indicates that there was an unexpected error on the TDLib client side.
+400: TDLib error. This usually indicates that the request was malformed or missing required parameters.
+401: TDLib authorization error. This usually indicates that the authentication token or credentials were invalid or expired.
+403: TDLib access denied error. This usually indicates that the request was not allowed due to permission settings or other restrictions.
+404: TDLib object not found error. This usually indicates that the requested resource could not be found, such as a chat or user.
+429: TDLib too many requests error. This usually indicates that the rate limit has been exceeded for the given API method or endpoint.
+500: TDLib server error. This usually indicates that there was an unexpected error on the TDLib server side.
+
+---Code 429---
+Too Many Requests: retry after {seconds}: This message indicates that you have exceeded the rate limit and should wait for the specified number of seconds before making another request.
+FLOOD_WAIT_{seconds}: This message indicates that you have exceeded the rate limit and should wait for the specified number of seconds before making another request. Note that the {seconds} parameter may vary depending on the specific API method or endpoint.
+Too many requests in a short time: This message indicates that you have exceeded the rate limit and should wait before making another request. Note that this message may not include a specific retry_after parameter, but you should still wait before making another request to avoid hitting the rate limit again.
+To handle these rate limit errors in your code, you should check for the retry_after parameter in the response and wait for the specified number of seconds before making another request. Alternatively, you can implement an exponential backoff algorithm to gradually increase the wait time for each failed request, to avoid hitting the rate limit repeatedly.
